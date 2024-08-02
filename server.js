@@ -1,34 +1,29 @@
 const express = require('express');
 const multer = require('multer');
+const AWS = require('aws-sdk');
 const path = require('path');
 const fs = require('fs');
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
-// Set storage engine for multer
-const storage = multer.diskStorage({
-    destination: './uploads/',
-    filename: function(req, file, cb) {
-        cb(null, file.originalname);
-    }
+// Configure AWS SDK
+const s3 = new AWS.S3({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    region: process.env.AWS_REGION,
 });
 
-// Initialize upload variable with multer
 const upload = multer({
-    storage: storage,
+    storage: multer.memoryStorage(),
     limits: { fileSize: 1000000 }, // Limit file size to 1MB
     fileFilter: function(req, file, cb) {
         checkFileType(file, cb);
     }
 }).single('image');
 
-// Check file type function
 function checkFileType(file, cb) {
-    // Allowed file extensions
     const filetypes = /jpeg|jpg|png|gif/;
-    // Check extension
     const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-    // Check MIME type
     const mimetype = filetypes.test(file.mimetype);
 
     if (mimetype && extname) {
@@ -38,11 +33,6 @@ function checkFileType(file, cb) {
     }
 }
 
-// Serve static files
-app.use('/uploads', express.static('uploads'));
-app.use(express.static('public'));
-
-// Route to handle file upload
 app.post('/upload', (req, res) => {
     upload(req, res, (err) => {
         if (err) {
@@ -51,32 +41,32 @@ app.post('/upload', (req, res) => {
             if (req.file == undefined) {
                 res.status(400).send('Error: No File Selected!');
             } else {
-                res.send('File uploaded successfully!');
+                const params = {
+                    Bucket: process.env.AWS_S3_BUCKET,
+                    Key: req.file.originalname,
+                    Body: req.file.buffer,
+                    ContentType: req.file.mimetype,
+                    ACL: 'public-read',
+                };
+
+                s3.upload(params, (s3Err, data) => {
+                    if (s3Err) {
+                        return res.status(500).send(s3Err);
+                    }
+                    res.send(`File uploaded successfully! Access it at ${data.Location}`);
+                });
             }
         }
     });
 });
 
-// Route to serve all images
 app.get('/images', (req, res) => {
-    const uploadsDir = path.join(__dirname, 'uploads');
-    fs.readdir(uploadsDir, (err, files) => {
+    s3.listObjectsV2({ Bucket: process.env.AWS_S3_BUCKET }, (err, data) => {
         if (err) {
-            res.status(500).send('Error reading upload directory.');
+            res.status(500).send('Error listing files.');
         } else {
+            const files = data.Contents.map(file => file.Key);
             res.json(files);
-        }
-    });
-});
-
-// Route to handle image deletion
-app.delete('/delete/:filename', (req, res) => {
-    const imagePath = path.join(__dirname, 'uploads', req.params.filename);
-    fs.unlink(imagePath, (err) => {
-        if (err) {
-            res.status(400).send('Failed to delete image.');
-        } else {
-            res.send('Image deleted successfully.');
         }
     });
 });
