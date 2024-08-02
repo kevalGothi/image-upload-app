@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="/temple.png" type="image/x-icon">
+    <title>Vaijnath Mahadev Halvad</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        img{
+            height: 100%;
+            width: 100%;
+            padding: 5%;
+            border-radius: calc(15px + 5%);
+        }
+        #imagesContainer{
+            height: 100%;
+        }
+        #imagesContainer div{
+            height: 100%;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <h1>આજ નો ફોટો</h1>
+    <main>
+        <div id="imagesContainer"></div>
+    </main>
+
+    <script>
+        async function loadImages() {
+            const imagesContainer = document.getElementById('imagesContainer');
+            imagesContainer.innerHTML = '';
+            try {
+                const response = await fetch('/images');
+                const files = await response.json();
+                files.forEach(file => {
+                    const img = document.createElement('img');
+                    img.src = `/uploads/${file}`;
+                    img.alt = file;
+                    img.width = 200;
+
+                    const downloadLink = document.createElement('a');
+                    downloadLink.href = `/uploads/${file}`;
+                    downloadLink.download = file;
+                    downloadLink.textContent = 'સેવ કરો';
+
+                    // const deleteButton = document.createElement('button');
+                    // deleteButton.textContent = 'Delete';
+                    // deleteButton.addEventListener('click', async function() {
+                    //     try {
+                    //         const deleteResponse = await fetch(`/delete/${file}`, {
+                    //             method: 'DELETE'
+                    //         });
+                    //         if (deleteResponse.ok) {
+                    //             alert('Image deleted successfully!');
+                    //             loadImages();
+                    //         } else {
+                    //             const errorText = await deleteResponse.text();
+                    //             alert(`Failed to delete image: ${errorText}`);
+                    //         }
+                    //     } catch (error) {
+                    //         console.error('Error:', error);
+                    //         alert('Failed to delete image.');
+                    //     }
+                    // });
+
+                    const div = document.createElement('div');
+                    div.appendChild(img);
+                    div.appendChild(downloadLink);
+                    // div.appendChild(deleteButton);
+                    imagesContainer.appendChild(div);
+                });
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadImages);
+    </script>
+</body>
+</html>
